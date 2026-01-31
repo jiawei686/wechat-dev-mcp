@@ -1,0 +1,29 @@
+# General
+.DS_Store
+Thumbs.db
+
+# Node.js
+node_modules/
+*.log
+
+# VS Code
+.vscode/
+
+# Dependency directories
+/dependencies
+/dist
+/build
+
+# System files
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+[Tt]rash
+*.tmp
+*.swp
+
+# Environment variables
+.env
+*.env
+*.env.*
