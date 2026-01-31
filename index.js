@@ -14,6 +14,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import automator from "miniprogram-automator";
 import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 // Global state
 let miniProgram = null;
@@ -354,7 +355,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 // Helper for Zod to JSON Schema since we can't easily import zod-to-json-schema in this environment without proper setup or it might conflict
 // Actually, I can use a simplified helper or just rely on manual schema construction if needed, but the library is installed.
 // Let's try to import it properly.
-import { zodToJsonSchema } from "zod-to-json-schema";
 
 async function main() {
   const transport = new StdioServerTransport();
