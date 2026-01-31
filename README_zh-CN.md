@@ -10,38 +10,69 @@
 2.  **微信开发者工具**: 必须已安装并运行。
 3.  **开启自动化**: 在微信开发者工具中，进入 **设置 -> 安全设置**，开启 **服务端口**（CLI/HTTP 调用）。
 
-## 安装
+## 快速开始
 
-```bash
-npm install
-# 或者
-yarn install
-```
+### 在 Claude Desktop 中使用（推荐）
 
-## 使用方法
-
-### 1. 启动 MCP 服务器
-
-你可以直接运行服务器：
-
-```bash
-node index.js
-```
-
-### 2. 在 MCP 客户端配置（例如 Claude Desktop）
-
-将以下内容添加到你的 MCP 客户端配置文件中（例如 macOS 上的 `~/Library/Application Support/Claude/claude_desktop_config.json`）：
+将以下内容添加到你的 `claude_desktop_config.json`（例如 macOS 上的 `~/Library/Application Support/Claude/claude_desktop_config.json`）：
 
 ```json
 {
   "mcpServers": {
     "wechat-devtools": {
-      "command": "node",
-      "args": ["/absolute/path/to/wechat-dev-mcp/index.js"]
+      "command": "npx",
+      "args": [
+        "-y",
+        "wechat-dev-mcp"
+      ]
     }
   }
 }
 ```
+
+## 手动安装
+
+全局安装：
+
+```bash
+npm install -g wechat-dev-mcp
+```
+
+配置：
+
+```json
+{
+  "mcpServers": {
+    "wechat-devtools": {
+      "command": "wechat-dev-mcp",
+      "args": []
+    }
+  }
+}
+```
+
+## 本地开发
+
+1. 克隆仓库
+2. 安装依赖：
+   ```bash
+   npm install
+   ```
+3. 本地运行：
+   ```bash
+   node index.js
+   ```
+4. 配置 Claude Desktop 指向本地文件：
+   ```json
+   {
+     "mcpServers": {
+       "wechat-devtools": {
+         "command": "node",
+         "args": ["/absolute/path/to/wechat-dev-mcp/index.js"]
+       }
+     }
+   }
+   ```
 
 ## 可用工具
 

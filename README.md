@@ -10,38 +10,69 @@ This is a Model Context Protocol (MCP) server that connects to WeChat Developer 
 2.  **WeChat Developer Tools**: Must be installed and running.
 3.  **Enable Automation**: In WeChat Developer Tools, go to **Settings -> Security Settings** and enable **Service Port** (CLI/HTTP invocation).
 
-## Installation
+## Quick Start
 
-```bash
-npm install
-# or
-yarn install
-```
+### Using with Claude Desktop (Recommended)
 
-## Usage
-
-### 1. Start the MCP Server
-
-You can run the server directly:
-
-```bash
-node index.js
-```
-
-### 2. Configure with MCP Client (e.g., Claude Desktop)
-
-Add the following to your MCP client configuration (e.g., `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add the following to your `claude_desktop_config.json` (e.g., `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
   "mcpServers": {
     "wechat-devtools": {
-      "command": "node",
-      "args": ["/absolute/path/to/wechat-dev-mcp/index.js"]
+      "command": "npx",
+      "args": [
+        "-y",
+        "wechat-dev-mcp"
+      ]
     }
   }
 }
 ```
+
+## Manual Installation
+
+To install globally:
+
+```bash
+npm install -g wechat-dev-mcp
+```
+
+Then configure:
+
+```json
+{
+  "mcpServers": {
+    "wechat-devtools": {
+      "command": "wechat-dev-mcp",
+      "args": []
+    }
+  }
+}
+```
+
+## Local Development
+
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Build and run locally:
+   ```bash
+   node index.js
+   ```
+4. Configure Claude Desktop to point to your local file:
+   ```json
+   {
+     "mcpServers": {
+       "wechat-devtools": {
+         "command": "node",
+         "args": ["/absolute/path/to/wechat-dev-mcp/index.js"]
+       }
+     }
+   }
+   ```
 
 ## Available Tools
 
