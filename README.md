@@ -1,5 +1,7 @@
 # WeChat Developer Tools MCP Server
 
+[中文](README_zh-CN.md)
+
 This is a Model Context Protocol (MCP) server that connects to WeChat Developer Tools via `miniprogram-automator`. It allows you to control the IDE and the mini-program from an MCP client (like Claude Desktop or an AI agent).
 
 ## Prerequisites
