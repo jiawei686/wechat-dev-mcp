@@ -86,6 +86,8 @@ Then configure:
 *   **`set_page_data`**: Set data on the current page.
 *   **`get_element`**: Get text, attributes, wxml of an element or tap it.
 *   **`call_method`**: Call a method on the current page instance.
+*   **`evaluate`**: Execute arbitrary JavaScript in the AppService context.
+*   **`call_cloud_function`**: Call a WeChat Cloud Function (`wx.cloud.callFunction`).
 *   **`disconnect`**: Disconnect automation.
 
 ## Troubleshooting

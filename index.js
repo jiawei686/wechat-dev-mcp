@@ -64,13 +64,15 @@ const TOOLS = {
   SET_PAGE_DATA: "set_page_data",
   GET_ELEMENT: "get_element",
   CALL_METHOD: "call_method",
+  EVALUATE: "evaluate",
+  CALL_CLOUD_FUNCTION: "call_cloud_function",
   DISCONNECT: "disconnect"
 };
 
 const server = new Server(
   {
     name: "wechat-devtools-mcp",
-    version: "1.0.0",
+    version: "1.0.1",
   },
   {
     capabilities: {
@@ -156,6 +158,27 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           z.object({
             method: z.string().describe("The name of the method to call"),
             args: z.array(z.union([z.string(), z.number(), z.boolean(), z.object({}).passthrough()])).optional().default([]).describe("Arguments to pass to the method"),
+          })
+        ),
+      },
+      {
+        name: TOOLS.EVALUATE,
+        description: "Execute arbitrary JavaScript code in the AppService context. Use this for complex logic, accessing global objects (like 'wx'), or debugging. Returns the result of the last expression.",
+        inputSchema: zodToJsonSchema(
+          z.object({
+            script: z.string().describe("The JavaScript code to execute. Can be a function body string."),
+            args: z.array(z.union([z.string(), z.number(), z.boolean(), z.object({}).passthrough()])).optional().default([]).describe("Arguments to pass if script is a function"),
+          })
+        ),
+      },
+      {
+        name: TOOLS.CALL_CLOUD_FUNCTION,
+        description: "Call a WeChat Cloud Function. Wrapper for wx.cloud.callFunction.",
+        inputSchema: zodToJsonSchema(
+          z.object({
+            name: z.string().describe("The name of the cloud function"),
+            data: z.record(z.any()).optional().describe("Data to pass to the function"),
+            config: z.record(z.any()).optional().describe("Cloud configuration (e.g. env)"),
           })
         ),
       },
@@ -337,6 +360,34 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
              const { method, args: methodArgs } = args;
              const result = await page.callMethod(method, ...methodArgs);
              return { content: [{ type: "text", text: result === undefined ? "undefined" : JSON.stringify(result, null, 2) }] };
+          }
+
+          case TOOLS.EVALUATE: {
+            const { script, args: scriptArgs } = args;
+            // Handle script execution
+            // automator.evaluate accepts function or string.
+            // If string, it is treated as function body if args are provided, or raw script?
+            // "If the first argument is a string, it will be treated as the function body."
+            // So we can wrap it.
+            const result = await miniProgram.evaluate(script, ...scriptArgs);
+            return { content: [{ type: "text", text: result === undefined ? "undefined" : JSON.stringify(result, null, 2) }] };
+          }
+
+          case TOOLS.CALL_CLOUD_FUNCTION: {
+            const { name: funcName, data, config } = args;
+            const result = await miniProgram.evaluate((n, d, c) => {
+              return wx.cloud.callFunction({
+                name: n,
+                data: d,
+                config: c
+              }).catch(err => ({ _isError: true, message: err.message, err }));
+            }, funcName, data, config);
+
+            if (result && result._isError) {
+              return { isError: true, content: [{ type: "text", text: `Cloud function failed: ${result.message}` }] };
+            }
+
+            return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
           }
 
           default:

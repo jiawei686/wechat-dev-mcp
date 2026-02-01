@@ -86,6 +86,8 @@ npm install -g wechat-dev-mcp
 *   **`set_page_data`**: 设置当前页面的数据。
 *   **`get_element`**: 获取元素的文本、属性、wxml 或点击元素。
 *   **`call_method`**: 调用当前页面实例的方法。
+*   **`evaluate`**: 在 AppService 上下文中执行任意 JavaScript 代码。
+*   **`call_cloud_function`**: 调用微信云函数 (`wx.cloud.callFunction`)。
 *   **`disconnect`**: 断开自动化连接。
 
 ## 常见问题排查
