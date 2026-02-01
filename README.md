@@ -93,6 +93,17 @@ Then configure:
 *   **`cloud_functions_list`**: List cloud functions (CLI `cloud functions list`).
 *   **`disconnect`**: Disconnect automation.
 
+## Best Practices for AI Agents
+
+To ensure the best experience when using this server with an AI Agent (like Cursor or Windsurf), we recommend adding the following rules to your project's `.cursorrules` or system prompt:
+
+```markdown
+ALWAYS run the `wechat-devtools_check_health` tool after making ANY changes to the codebase (editing files, creating files, etc.).
+1. If `check_health` shows console errors, YOU MUST fix them immediately.
+2. If `check_health` shows the page path is not what you expect, navigate to the correct page.
+3. If `check_health` fails (not connected), you MUST run `wechat-devtools_launch` or `connect`.
+```
+
 ## Troubleshooting
 
 *   **Connection Refused**: Ensure WeChat Developer Tools is running and the Service Port is enabled in Settings.

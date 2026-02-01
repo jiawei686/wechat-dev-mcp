@@ -149,7 +149,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: TOOLS.CHECK_HEALTH,
-        description: "[CRITICAL] Use this tool to verify if the mini-program is running correctly after ANY code changes. It returns the current page path, network status, and recent console errors.",
+        description: "[MANDATORY] Run this tool AFTER EVERY CODE CHANGE (edit/write) to verify the mini-program is running correctly. Returns current page path, network status, and recent console errors. FIX ANY ERRORS IMMEDIATELY.",
         inputSchema: zodToJsonSchema(z.object({})),
       },
       {

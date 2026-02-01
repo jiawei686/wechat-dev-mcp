@@ -1,0 +1,33 @@
+# WeChat Miniprogram Development Rules
+
+## 核心原则 (Core Principles)
+
+你正在开发一个微信小程序。为了确保代码的健壮性，你必须遵守以下工作流：
+
+1.  **修改后必检查 (Verify After Change)**:
+    *   每次使用 `write` 或 `edit` 修改代码后，**必须** 立即调用 `check_health` 工具。
+    *   **不要** 假设代码能直接运行。小程序环境很敏感。
+
+2.  **处理错误 (Handle Errors)**:
+    *   检查 `check_health` 返回的 `recentConsoleErrors`。
+    *   如果有报错，**必须** 优先修复报错，而不是继续写新功能。
+    *   如果 `connected` 为 `false`，说明开发者工具断开了，必须先使用 `launch` 或 `connect` 重新连接。
+
+3.  **验证 UI (Verify UI)**:
+    *   在修改 UI (WXML/WXSS) 后，使用 `get_element` 检查关键元素是否存在。
+    *   可以使用 `get_page_data` 确认数据是否正确绑定。
+
+## 工具使用规范 (Tool Usage)
+
+*   **启动**: 开始工作前，总是先检查连接状态。如果未连接，使用 `launch` 启动项目。
+*   **调试**: 遇到问题时，使用 `evaluate` 执行 `console.log` 或直接检查 `wx` 对象的状态。
+*   **部署**: 使用 `build_npm` 构建依赖，使用 `cloud_functions_deploy` 部署云函数。
+
+## 示例工作流 (Example Workflow)
+
+User: "帮我把标题改成红色"
+Agent: 
+1. `edit` 修改 .wxss 文件。
+2. `check_health` 确认没有编译错误。
+3. `get_element` (action="style") 确认颜色已生效。
+4. 回复用户。
