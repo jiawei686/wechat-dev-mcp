@@ -15,11 +15,51 @@ import {
 import automator from "miniprogram-automator";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { execFile } from "child_process";
+import fs from "fs";
+import path from "path";
 
 // Global state
 let miniProgram = null;
+let connectedProjectPath = null;
+let connectedCliPath = null;
 const DEFAULT_PORT = process.env.WECHAT_PORT || 9420;
 const consoleLogs = []; // Ring buffer for logs
+
+// Helper to find CLI path
+function getCliPath(customPath) {
+  if (customPath && fs.existsSync(customPath)) return customPath;
+  if (connectedCliPath && fs.existsSync(connectedCliPath)) return connectedCliPath;
+  
+  if (process.platform === 'darwin') {
+    const defaultMacPath = '/Applications/wechatwebdevtools.app/Contents/MacOS/cli';
+    if (fs.existsSync(defaultMacPath)) return defaultMacPath;
+  } else if (process.platform === 'win32') {
+    const defaultWinPath = 'C:\\Program Files (x86)\\Tencent\\WeChatDevTools\\cli.bat';
+    if (fs.existsSync(defaultWinPath)) return defaultWinPath;
+  }
+  return null;
+}
+
+// Helper to execute CLI command
+function executeCli(args, cliPath) {
+  return new Promise((resolve, reject) => {
+    const finalCliPath = getCliPath(cliPath);
+    if (!finalCliPath) {
+      return reject(new Error("WeChat DevTools CLI not found. Please specify cliPath."));
+    }
+    
+    execFile(finalCliPath, args, (error, stdout, stderr) => {
+      if (error) {
+        // Some CLI commands return non-zero exit code even on partial success or just warnings, 
+        // but usually error means failure.
+        // We attach stderr to error message
+        return reject(new Error(`CLI Execution Failed: ${error.message}\nStderr: ${stderr}\nStdout: ${stdout}`));
+      }
+      resolve(stdout);
+    });
+  });
+}
 
 function setupListeners(mp) {
   // Clear old logs on new connection
@@ -66,6 +106,9 @@ const TOOLS = {
   CALL_METHOD: "call_method",
   EVALUATE: "evaluate",
   CALL_CLOUD_FUNCTION: "call_cloud_function",
+  BUILD_NPM: "build_npm",
+  CLOUD_FUNCTIONS_DEPLOY: "cloud_functions_deploy",
+  CLOUD_FUNCTIONS_LIST: "cloud_functions_list",
   DISCONNECT: "disconnect"
 };
 
@@ -183,6 +226,40 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         ),
       },
       {
+        name: TOOLS.BUILD_NPM,
+        description: "Build NPM dependencies for the mini-program using the CLI tool.",
+        inputSchema: zodToJsonSchema(
+          z.object({
+            projectPath: z.string().optional().describe("Absolute path to the project. Defaults to currently connected project."),
+            cliPath: z.string().optional().describe("Path to DevTools CLI."),
+          })
+        ),
+      },
+      {
+        name: TOOLS.CLOUD_FUNCTIONS_DEPLOY,
+        description: "Deploy cloud functions using the CLI tool.",
+        inputSchema: zodToJsonSchema(
+          z.object({
+            env: z.string().describe("Cloud environment ID"),
+            names: z.array(z.string()).describe("List of cloud function names to deploy"),
+            remoteNpmInstall: z.boolean().optional().default(false).describe("Install npm dependencies in the cloud"),
+            projectPath: z.string().optional().describe("Absolute path to the project. Defaults to currently connected project."),
+            cliPath: z.string().optional().describe("Path to DevTools CLI."),
+          })
+        ),
+      },
+      {
+        name: TOOLS.CLOUD_FUNCTIONS_LIST,
+        description: "List cloud functions in an environment using the CLI tool.",
+        inputSchema: zodToJsonSchema(
+          z.object({
+            env: z.string().describe("Cloud environment ID"),
+            projectPath: z.string().optional().describe("Absolute path to the project. Defaults to currently connected project."),
+            cliPath: z.string().optional().describe("Path to DevTools CLI."),
+          })
+        ),
+      },
+      {
         name: TOOLS.DISCONNECT,
         description: "Disconnect from the mini-program.",
         inputSchema: zodToJsonSchema(z.object({})),
@@ -205,6 +282,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         // Remove undefined keys
         Object.keys(options).forEach(key => options[key] === undefined && delete options[key]);
         
+        // Update global paths
+        if (projectPath) connectedProjectPath = projectPath;
+        if (cliPath) connectedCliPath = cliPath;
+
         // Try to connect to existing instance first
         const tryPort = port || DEFAULT_PORT;
         try {
@@ -388,6 +469,56 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
 
             return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+          }
+
+          case TOOLS.BUILD_NPM: {
+            const { projectPath, cliPath } = args;
+            const targetProject = projectPath || connectedProjectPath;
+            if (!targetProject) {
+              return { isError: true, content: [{ type: "text", text: "Project path is required. Connect first or provide projectPath." }] };
+            }
+            
+            try {
+              const output = await executeCli(['build-npm', '--project', targetProject], cliPath);
+              return { content: [{ type: "text", text: `NPM Build Success:\n${output}` }] };
+            } catch (e) {
+              return { isError: true, content: [{ type: "text", text: e.message }] };
+            }
+          }
+
+          case TOOLS.CLOUD_FUNCTIONS_DEPLOY: {
+            const { env, names, remoteNpmInstall, projectPath, cliPath } = args;
+            const targetProject = projectPath || connectedProjectPath;
+            if (!targetProject) {
+              return { isError: true, content: [{ type: "text", text: "Project path is required. Connect first or provide projectPath." }] };
+            }
+
+            const cliArgs = ['cloud', 'functions', 'deploy', '--project', targetProject, '--env', env, '--names', ...names];
+            if (remoteNpmInstall) {
+              cliArgs.push('--remote-npm-install');
+            }
+
+            try {
+              const output = await executeCli(cliArgs, cliPath);
+              return { content: [{ type: "text", text: `Cloud Functions Deployed:\n${output}` }] };
+            } catch (e) {
+              return { isError: true, content: [{ type: "text", text: e.message }] };
+            }
+          }
+
+          case TOOLS.CLOUD_FUNCTIONS_LIST: {
+            const { env, projectPath, cliPath } = args;
+            const targetProject = projectPath || connectedProjectPath;
+            if (!targetProject) {
+              return { isError: true, content: [{ type: "text", text: "Project path is required. Connect first or provide projectPath." }] };
+            }
+
+            try {
+              const output = await executeCli(['cloud', 'functions', 'list', '--project', targetProject, '--env', env], cliPath);
+              return { content: [{ type: "text", text: output }] };
+            } catch (e) {
+              return { isError: true, content: [{ type: "text", text: e.message }] };
+            }
           }
 
           default:
