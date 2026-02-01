@@ -88,6 +88,9 @@ Then configure:
 *   **`call_method`**: Call a method on the current page instance.
 *   **`evaluate`**: Execute arbitrary JavaScript in the AppService context.
 *   **`call_cloud_function`**: Call a WeChat Cloud Function (`wx.cloud.callFunction`).
+*   **`build_npm`**: Build NPM dependencies (CLI `build-npm`).
+*   **`cloud_functions_deploy`**: Deploy cloud functions (CLI `cloud functions deploy`).
+*   **`cloud_functions_list`**: List cloud functions (CLI `cloud functions list`).
 *   **`disconnect`**: Disconnect automation.
 
 ## Troubleshooting

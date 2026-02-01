@@ -88,6 +88,9 @@ npm install -g wechat-dev-mcp
 *   **`call_method`**: 调用当前页面实例的方法。
 *   **`evaluate`**: 在 AppService 上下文中执行任意 JavaScript 代码。
 *   **`call_cloud_function`**: 调用微信云函数 (`wx.cloud.callFunction`)。
+*   **`build_npm`**: 构建 NPM 依赖 (调用 CLI `build-npm`)。
+*   **`cloud_functions_deploy`**: 部署云函数 (调用 CLI `cloud functions deploy`)。
+*   **`cloud_functions_list`**: 列出云函数 (调用 CLI `cloud functions list`)。
 *   **`disconnect`**: 断开自动化连接。
 
 ## 常见问题排查
