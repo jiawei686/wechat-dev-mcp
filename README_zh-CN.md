@@ -84,7 +84,10 @@ npm install -g wechat-dev-mcp
 *   **`navigate_to`**: 跳转到指定页面（例如 `/pages/index/index`）。
 *   **`get_page_data`**: 获取当前页面的数据。
 *   **`set_page_data`**: 设置当前页面的数据。
-*   **`get_element`**: 获取元素的文本、属性、wxml 或点击元素。
+*   **`get_element`**: 获取元素的信息（文本、属性、样式等）。
+*   **`tap_element`**: 点击 (Tap) 页面上的元素。
+*   **`input_text`**: 向元素输入文本。
+*   **`trigger_event`**: 触发元素的自定义事件。
 *   **`call_method`**: 调用当前页面实例的方法。
 *   **`evaluate`**: 在 AppService 上下文中执行任意 JavaScript 代码。
 *   **`call_cloud_function`**: 调用微信云函数 (`wx.cloud.callFunction`)。

@@ -84,7 +84,10 @@ Then configure:
 *   **`navigate_to`**: Navigate to a page (e.g., `/pages/index/index`).
 *   **`get_page_data`**: Get data from the current page.
 *   **`set_page_data`**: Set data on the current page.
-*   **`get_element`**: Get text, attributes, wxml of an element or tap it.
+*   **`get_element`**: Get element's text, attributes, or style.
+*   **`tap_element`**: Tap (click) an element.
+*   **`input_text`**: Input text into an element.
+*   **`trigger_event`**: Trigger a custom event on an element.
 *   **`call_method`**: Call a method on the current page instance.
 *   **`evaluate`**: Execute arbitrary JavaScript in the AppService context.
 *   **`call_cloud_function`**: Call a WeChat Cloud Function (`wx.cloud.callFunction`).
