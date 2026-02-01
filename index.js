@@ -103,6 +103,9 @@ const TOOLS = {
   GET_PAGE_DATA: "get_page_data",
   SET_PAGE_DATA: "set_page_data",
   GET_ELEMENT: "get_element",
+  TAP_ELEMENT: "tap_element",
+  INPUT_TEXT: "input_text",
+  TRIGGER_EVENT: "trigger_event",
   CALL_METHOD: "call_method",
   EVALUATE: "evaluate",
   CALL_CLOUD_FUNCTION: "call_cloud_function",
@@ -181,16 +184,43 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: TOOLS.GET_ELEMENT,
-        description: "Get information about an element (text, wxml, attributes, computed style) or interact with it (tap, input, trigger). Use this to inspect UI or perform actions.",
+        description: "Get information about an element (text, wxml, attributes, computed style). Use this to inspect UI.",
         inputSchema: zodToJsonSchema(
           z.object({
             selector: z.string().describe("The CSS selector of the element"),
-            action: z.enum(["text", "wxml", "outerWxml", "attribute", "style", "tap", "input", "trigger"]).optional().default("text").describe("Action to perform: 'text' (content), 'wxml' (structure), 'attribute' (get attr), 'style' (get style), 'tap' (click), 'input' (enter text), 'trigger' (custom event)"),
+            action: z.enum(["text", "wxml", "outerWxml", "attribute", "style"]).optional().default("text").describe("Action to perform: 'text' (content), 'wxml' (structure), 'attribute' (get attr), 'style' (get style)"),
             attributeName: z.string().optional().describe("Attribute name (required if action is 'attribute')"),
             styleName: z.string().optional().describe("Style name (required if action is 'style')"),
-            value: z.string().optional().describe("Value to input (required if action is 'input')"),
-            eventName: z.string().optional().describe("Event name to trigger (required if action is 'trigger')"),
-            detail: z.record(z.any()).optional().describe("Event detail object (optional for 'trigger')"),
+          })
+        ),
+      },
+      {
+        name: TOOLS.TAP_ELEMENT,
+        description: "Tap (click) an element on the current page.",
+        inputSchema: zodToJsonSchema(
+          z.object({
+            selector: z.string().describe("The CSS selector of the element to tap"),
+          })
+        ),
+      },
+      {
+        name: TOOLS.INPUT_TEXT,
+        description: "Input text into an element (e.g., <input>, <textarea>).",
+        inputSchema: zodToJsonSchema(
+          z.object({
+            selector: z.string().describe("The CSS selector of the input element"),
+            value: z.string().describe("The text value to input"),
+          })
+        ),
+      },
+      {
+        name: TOOLS.TRIGGER_EVENT,
+        description: "Trigger a custom event on an element.",
+        inputSchema: zodToJsonSchema(
+          z.object({
+            selector: z.string().describe("The CSS selector of the element"),
+            eventName: z.string().describe("The name of the event to trigger (e.g., 'change')"),
+            detail: z.record(z.any()).optional().describe("Event detail object"),
           })
         ),
       },
@@ -407,7 +437,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
           case TOOLS.GET_ELEMENT: {
             const page = await miniProgram.currentPage();
-            const { selector, action, attributeName, styleName, value, eventName, detail } = args;
+            const { selector, action, attributeName, styleName } = args;
             const element = await page.$(selector);
             
             if (!element) {
@@ -420,20 +450,38 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             else if (action === "outerWxml") result = await element.outerWxml();
             else if (action === "attribute") result = await element.attribute(attributeName);
             else if (action === "style") result = await element.style(styleName);
-            else if (action === "tap") {
-              await element.tap();
-              result = "Tapped element";
-            }
-            else if (action === "input") {
-              await element.input(value || "");
-              result = `Input value "${value}" set`;
-            }
-            else if (action === "trigger") {
-              await element.trigger(eventName, detail || {});
-              result = `Triggered event "${eventName}"`;
+            else {
+              return { isError: true, content: [{ type: "text", text: `Invalid action for get_element: ${action}` }] };
             }
             
             return { content: [{ type: "text", text: String(result) }] };
+          }
+
+          case TOOLS.TAP_ELEMENT: {
+            const page = await miniProgram.currentPage();
+            const { selector } = args;
+            const element = await page.$(selector);
+            if (!element) return { isError: true, content: [{ type: "text", text: `Element not found: ${selector}` }] };
+            await element.tap();
+            return { content: [{ type: "text", text: `Tapped element: ${selector}` }] };
+          }
+
+          case TOOLS.INPUT_TEXT: {
+            const page = await miniProgram.currentPage();
+            const { selector, value } = args;
+            const element = await page.$(selector);
+            if (!element) return { isError: true, content: [{ type: "text", text: `Element not found: ${selector}` }] };
+            await element.input(value || "");
+            return { content: [{ type: "text", text: `Input value "${value}" into ${selector}` }] };
+          }
+
+          case TOOLS.TRIGGER_EVENT: {
+            const page = await miniProgram.currentPage();
+            const { selector, eventName, detail } = args;
+            const element = await page.$(selector);
+            if (!element) return { isError: true, content: [{ type: "text", text: `Element not found: ${selector}` }] };
+            await element.trigger(eventName, detail || {});
+            return { content: [{ type: "text", text: `Triggered event "${eventName}" on ${selector}` }] };
           }
 
           case TOOLS.CALL_METHOD: {
