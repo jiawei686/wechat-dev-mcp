@@ -1,21 +1,24 @@
-# WeChat Developer Tools MCP Server
+# WeChat DevTools MCP Server
 
-[中文](README_zh-CN.md)
+[中文](README_zh-CN.md) | [npm](https://www.npmjs.com/package/wechat-dev-mcp)
 
-A Model Context Protocol (MCP) server that connects to WeChat Developer Tools via `miniprogram-automator`. Control the IDE and mini-program from an MCP client (Claude Desktop, Cursor, Windsurf, or any AI agent).
+Control WeChat Developer Tools and mini-programs/mini-games via the [Model Context Protocol](https://modelcontextprotocol.io) (MCP). Works with Claude Desktop, Cursor, Windsurf, and any MCP-compatible AI agent.
 
 ## Prerequisites
 
-1.  **Node.js 18+**
-2.  **WeChat Developer Tools** installed and running
-3.  **Enable Service Port**: Go to **Settings -> Security Settings** and enable **Service Port** (CLI/HTTP invocation)
+| Requirement | Details |
+|-------------|---------|
+| **Node.js** | v18+ |
+| **WeChat DevTools** | Installed, with **Service Port** enabled (`设置 → 安全设置 → 服务端口`) |
+| **Mini-program / Mini-game** | An open project in DevTools |
 
 ## Quick Start
 
-### Claude Desktop
+### With Claude Desktop
 
 Add to your `claude_desktop_config.json`:
 
+**Quick (npx):**
 ```json
 {
   "mcpServers": {
@@ -27,13 +30,10 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
-### Global Install
-
+**Global install (recommended for speed):**
 ```bash
 npm install -g wechat-dev-mcp
 ```
-
-Then configure:
 
 ```json
 {
@@ -46,16 +46,12 @@ Then configure:
 }
 ```
 
-### Local Development
-
+**Local development:**
 ```bash
-git clone <repo>
+git clone https://github.com/jiawei686/wechat-dev-mcp.git
 cd wechat-dev-mcp
 npm install
-node index.js
 ```
-
-Configure Claude Desktop to point to your local file:
 
 ```json
 {
@@ -68,96 +64,139 @@ Configure Claude Desktop to point to your local file:
 }
 ```
 
-## Available Tools
+### With Cursor / Windsurf
 
-### Connection Management
-* **`launch`**: Launch DevTools and open a mini-program project. Auto-detects existing instances.
-* **`connect`**: Connect to an already running DevTools instance via WebSocket.
-* **`disconnect`**: Disconnect the automation session.
-* **`check_health`**: **[Run after every code change]** Check connection status, page path, network type, and console errors.
-* **`wait_ready`**: Wait for the mini-program to finish compilation and become interactive.
+Point to the same `command` and `args` in your MCP configuration.
 
-### Navigation
-* **`navigate_to`**: Navigate to a page (`reLaunch`, `navigateTo`, `redirectTo`, `switchTab`).
-* **`navigate_back`**: Go back in the page stack.
-* **`get_page_stack`**: Get the current page stack.
+## Tool Reference (36 tools)
 
-### Data & State
-* **`get_page_data`**: Get page data (verify state after interactions).
-* **`set_page_data`**: Set page data (mock state for testing).
-* **`get_system_info`**: Get device info, SDK version, platform, screen/window size.
-* **`get_console_logs`**: Get recent console logs (filter by level: all, error, warn, info, debug).
+### Connection
 
-### Element Interaction
-* **`get_element`**: Get element text, WXML, attributes, computed style, value, or property.
-* **`get_element_size`**: Get element dimensions (width, height).
-* **`get_element_offset`**: Get element position (left, top, right, bottom).
-* **`tap_element`**: Tap an element.
-* **`longpress_element`**: Long-press an element.
-* **`input_text`**: Input text into `<input>` or `<textarea>`.
-* **`trigger_event`**: Trigger a custom event (change, blur, submit, etc.).
+| Tool | Description | Key Parameters |
+|------|-------------|----------------|
+| `launch` | Launch DevTools & open a project. Auto-detects existing instances. | `projectPath` (required), `cliPath`, `port` |
+| `connect` | Connect to a running DevTools via WebSocket. | `wsEndpoint` (default `ws://localhost:9420`), `projectPath` |
+| `disconnect` | Disconnect the automation session. | — |
+| `check_health` | **[Run after every code change]** Check connection, page path, network, console errors, project type. | — |
+| `wait_ready` | Wait for mini-program to finish compiling. | `timeout` (default 60000ms) |
+| `get_project_type` | Detect current project type (`"program"` or `"game"`). | — |
+
+### Page / Navigation (mini-program only)
+
+| Tool | Description | Key Parameters |
+|------|-------------|----------------|
+| `navigate_to` | Navigate to a page. | `url`, `method` (`reLaunch`/`navigateTo`/`redirectTo`/`switchTab`) |
+| `navigate_back` | Go back in the page stack. | `delta` (default 1) |
+| `get_page_stack` | Get the current page stack. | — |
+| `get_page_data` | Get page data (verify state). | `path` (optional) |
+| `set_page_data` | Set page data (mock state for testing). | `data` (object) |
+| `call_method` | Call a page method (e.g. `onLoad`, `onShow`). | `method`, `args` |
+
+### Element Interaction (mini-program only)
+
+| Tool | Description | Key Parameters |
+|------|-------------|----------------|
+| `get_element` | Get element text, WXML, attributes, style, value, or property. | `selector`, `action` |
+| `get_element_size` | Get element dimensions. | `selector` |
+| `get_element_offset` | Get element position. | `selector` |
+| `tap_element` | Tap an element. | `selector` |
+| `longpress_element` | Long-press an element. | `selector` |
+| `input_text` | Input text into `<input>` / `<textarea>`. | `selector`, `value` |
+| `trigger_event` | Trigger a custom event (change, blur, submit). | `selector`, `eventName`, `detail` |
 
 ### Code Execution
-* **`evaluate`**: Execute arbitrary JavaScript in the AppService context.
-* **`call_method`**: Call a method on the current page.
-* **`call_wx_method`**: Call any wx API method (getNetworkType, getLocation, etc.).
-* **`mock_wx_method`**: Mock a wx API method for testing.
-* **`restore_wx_method`**: Restore a mocked wx API method.
+
+| Tool | Description | Key Parameters |
+|------|-------------|----------------|
+| `evaluate` | Execute arbitrary JS in the AppService context. Returns the last expression. | `script`, `args` |
+| `call_wx_method` | Call any `wx.*` API (e.g. `getNetworkType`, `getLocation`, `scanCode`). | `method`, `args` |
+| `mock_wx_method` | Mock a `wx.*` API to return a custom result. | `method`, `result` |
+| `restore_wx_method` | Restore a mocked `wx.*` API. | `method` |
 
 ### Mini-Game Tools
-* **`get_project_type`**: Detect project type (mini-program or mini-game).
-* **`game_get_info`**: Get mini-game runtime info (system info, performance, renderer).
-* **`game_get_user_info`**: Get mini-game user info (wx.getUserInfo / wx.getUserProfile).
-* **`game_get_open_data_context`**: Check open data context availability.
-* **`game_get_cloud_storage`**: Get cloud storage data by keys.
 
-> **Note**: Mini-games don't have pages or DOM elements. When `projectType` is `"game"`, page tools (`get_page_data`, `get_element`, `tap_element`, etc.) will return clear error messages with alternative tool suggestions. Use `evaluate`, `call_wx_method`, `game_*` tools, and `screenshot` instead.
+| Tool | Description | Key Parameters |
+|------|-------------|----------------|
+| `get_project_type` | Auto-detect project type (reads `project.config.json`). | — |
+| `game_get_info` | Game runtime info (system info, performance, renderer). | — |
+| `game_get_user_info` | User info via `wx.getUserInfo` / `wx.getUserProfile`. | — |
+| `game_get_open_data_context` | Check open data context availability. | — |
+| `game_get_cloud_storage` | Cloud storage data by keys. | `keys` (string[]) |
 
-### Cloud & Build
-* **`call_cloud_function`**: Call a WeChat Cloud Function.
-* **`build_npm`**: Build NPM dependencies.
-* **`cloud_functions_deploy`**: Deploy cloud functions.
-* **`cloud_functions_list`**: List cloud functions.
+> Mini-games don't have pages or DOM. Page tools (`get_page_data`, `get_element`, `tap_element`, etc.) return clear errors with alternative suggestions when used on a game project.
 
-### Other
-* **`screenshot`**: Take a screenshot (returns base64 or saves to file).
-* **`page_scroll_to`**: Scroll the page to a specific position.
-* **`wait_for`**: Wait for an element to appear.
-* **`get_project_type`**: Detect project type (mini-program vs mini-game).
+### Debugging
 
-## Best Practices for AI Agents
+| Tool | Description | Key Parameters |
+|------|-------------|----------------|
+| `get_system_info` | Get device info, SDK version, platform, screen/window size. | — |
+| `get_console_logs` | Get recent console logs from the mini-program. | `level`, `limit` |
+| `screenshot` | Take a screenshot (base64 or file). | `path` (optional) |
+| `page_scroll_to` | Scroll the page to a position. | `scrollTop`, `duration` |
+| `wait_for` | Wait for an element to appear. | `selector`, `timeout` |
+| `call_cloud_function` | Call a WeChat Cloud Function. | `name`, `data`, `config` |
 
-Add these rules to `.cursorrules` or your system prompt for the best experience:
+### CLI Operations
 
-```markdown
-## WeChat DevTools Workflow
-
-1. **Start**: Before working, use `wechat-devtools_launch` to open the project, or `wechat-devtools_connect` to attach to an existing DevTools instance.
-
-2. **Verify After Changes**: Run `wechat-devtools_check_health` after EVERY code change (edit/write). Fix any errors immediately.
-
-3. **Wait for Compilation**: After launch, use `wechat-devtools_wait_ready` if the mini-program is still compiling. The `check_health` response will show `compilationStatus: "compiling"` until ready.
-
-4. **Check UI**: Use `wechat-devtools_get_element` to verify UI elements exist. Use `wechat-devtools_get_page_data` to confirm data binding.
-
-5. **Debug**: Use `wechat-devtools_evaluate` to execute `console.log` or check `wx` object state. Use `wechat-devtools_get_console_logs` to see recent logs.
-
-6. **Screenshot**: Use `wechat-devtools_screenshot` to visually verify the UI state.
-
-7. **Cloud Functions**: Use `wechat-devtools_call_cloud_function` for cloud function debugging. Use `wechat-devtools_build_npm` for dependency builds.
-```
+| Tool | Description | Key Parameters |
+|------|-------------|----------------|
+| `build_npm` | Build NPM dependencies via DevTools CLI. | `projectPath`, `cliPath` |
+| `cloud_functions_deploy` | Deploy cloud functions. | `env`, `names`, `remoteNpmInstall` |
+| `cloud_functions_list` | List cloud functions. | `env` |
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `WECHAT_PORT` | `9420` | WebSocket automation port |
-| `WECHAT_CLI_TIMEOUT` | `120000` | CLI command timeout in ms |
-| `WECHAT_AUTOMATOR_TIMEOUT` | `10000` | Automator API call timeout in ms |
+| `WECHAT_CLI_TIMEOUT` | `120000` | CLI command timeout (ms) |
+| `WECHAT_AUTOMATOR_TIMEOUT` | `10000` | Automator API timeout (ms) |
+
+## Workflows
+
+### Mini-Program Debugging
+
+```
+1. check_health          # verify connection
+2. navigate_to           # go to target page
+3. get_page_data         # check state
+4. get_element           # verify UI elements
+5. tap_element           # interact
+6. check_health          # verify no errors after change
+```
+
+### Mini-Game Debugging
+
+```
+1. check_health          # verify connection (shows projectType: "game")
+2. game_get_info         # get runtime info
+3. evaluate              # run JS in game context
+4. call_wx_method        # call wx APIs
+5. screenshot            # visually verify
+6. get_console_logs      # check logs
+```
 
 ## Troubleshooting
 
-* **Connection Refused**: Ensure DevTools is running and Service Port is enabled.
-* **Extension context invalidated**: Close and reopen DevTools, or quit and re-launch.
-* **Page not ready / Compilation stuck**: Open DevTools to check for compilation errors. Try `wait_ready` with a longer timeout.
-* **Path Issues**: Use absolute paths for `projectPath`.
+| Problem | Solution |
+|---------|----------|
+| "Connection refused" | Ensure DevTools is running and Service Port is enabled (`设置 → 安全设置`) |
+| "Extension context invalidated" | Restart DevTools completely |
+| "currentPage() timed out" | Project is still compiling; use `wait_ready` or wait longer |
+| Page tools fail on game | Use `evaluate`, `call_wx_method`, `game_*` tools instead |
+| CLI not found | Set `cliPath` explicitly, or check DevTools installation path |
+
+## Project Structure
+
+```
+wechat-dev-mcp/
+├── index.js           # MCP server entry point (single-file implementation)
+├── package.json       # Package manifest
+├── AGENTS.md          # AI agent workflow guide
+├── README.md          # English documentation
+├── README_zh-CN.md    # Chinese documentation
+├── .cursorrules       # Cursor/Windsurf IDE rules
+├── .gitignore         # Git ignore rules
+├── LICENSE            # MIT License
+└── yarn.lock          # Dependency lockfile
+```

@@ -1,21 +1,24 @@
-# WeChat Developer Tools MCP Server
+# WeChat DevTools MCP Server
 
-[English](README.md)
+[English](README.md) | [npm](https://www.npmjs.com/package/wechat-dev-mcp)
 
-一个基于 `miniprogram-automator` 的 Model Context Protocol (MCP) 服务器，用于连接微信开发者工具。通过 MCP 客户端（如 Claude Desktop、Cursor、Windsurf 或任何 AI Agent）控制 IDE 和小程序。
+通过 [Model Context Protocol](https://modelcontextprotocol.io) (MCP) 控制微信开发者工具和小程序/小游戏。兼容 Claude Desktop、Cursor、Windsurf 等 MCP 客户端。
 
 ## 前置条件
 
-1.  **Node.js 18+**
-2.  **微信开发者工具** 已安装并运行
-3.  **开启服务端口**：进入 **设置 -> 安全设置**，开启 **服务端口**（CLI/HTTP 调用）
+| 要求 | 说明 |
+|------|------|
+| **Node.js** | v18+ |
+| **微信开发者工具** | 已安装，并开启 **服务端口**（`设置 → 安全设置`） |
+| **小程序 / 小游戏** | 在开发者工具中打开的项目 |
 
 ## 快速开始
 
 ### Claude Desktop
 
-在 `claude_desktop_config.json` 中添加：
+添加到 `claude_desktop_config.json`：
 
+**npx 快速运行：**
 ```json
 {
   "mcpServers": {
@@ -27,13 +30,10 @@
 }
 ```
 
-### 全局安装
-
+**全局安装（推荐，启动更快）：**
 ```bash
 npm install -g wechat-dev-mcp
 ```
-
-配置：
 
 ```json
 {
@@ -46,16 +46,12 @@ npm install -g wechat-dev-mcp
 }
 ```
 
-### 本地开发
-
+**本地开发：**
 ```bash
-git clone <repo>
+git clone https://github.com/jiawei686/wechat-dev-mcp.git
 cd wechat-dev-mcp
 npm install
-node index.js
 ```
-
-配置 Claude Desktop 指向本地文件：
 
 ```json
 {
@@ -68,96 +64,126 @@ node index.js
 }
 ```
 
-## 可用工具
+## 工具列表（36个）
 
 ### 连接管理
-* **`launch`**: 启动开发者工具并打开小程序项目。自动检测已有实例。
-* **`connect`**: 连接到已在运行的开发者工具实例。
-* **`disconnect`**: 断开自动化连接。
-* **`check_health`**: **[每次修改代码后必用]** 检查连接状态、页面路径、网络类型和控制台错误。
-* **`wait_ready`**: 等待小程序编译完成并进入可交互状态。
+| 工具 | 描述 | 参数 |
+|------|------|------|
+| `launch` | 启动开发者工具并打开项目 | `projectPath`（必填）, `cliPath`, `port` |
+| `connect` | 连接到已在运行的实例 | `wsEndpoint`, `projectPath` |
+| `disconnect` | 断开自动化连接 | — |
+| `check_health` | **[每次改代码后必用]** 检查状态 | — |
+| `wait_ready` | 等待编译完成 | `timeout` |
+| `get_project_type` | 检测项目类型（`program`/`game`） | — |
 
-### 导航
-* **`navigate_to`**: 跳转到指定页面（支持 `reLaunch`、`navigateTo`、`redirectTo`、`switchTab`）。
-* **`navigate_back`**: 返回上一页。
-* **`get_page_stack`**: 获取当前页面栈。
+### 页面导航（仅小程序）
+| 工具 | 描述 | 参数 |
+|------|------|------|
+| `navigate_to` | 跳转页面 | `url`, `method`（reLaunch/navigateTo/redirectTo/switchTab） |
+| `navigate_back` | 返回上一页 | `delta` |
+| `get_page_stack` | 获取页面栈 | — |
+| `get_page_data` | 获取页面数据 | `path` |
+| `set_page_data` | 设置页面数据 | `data` |
+| `call_method` | 调用页面方法 | `method`, `args` |
 
-### 数据与状态
-* **`get_page_data`**: 获取页面数据（验证交互后的状态变化）。
-* **`set_page_data`**: 设置页面数据（模拟状态用于测试）。
-* **`get_system_info`**: 获取设备信息、SDK 版本、平台、屏幕/窗口尺寸。
-* **`get_console_logs`**: 获取最近的控制台日志（按级别过滤：all、error、warn、info、debug）。
-
-### 元素交互
-* **`get_element`**: 获取元素的文本、WXML、属性、计算样式、值或属性。
-* **`get_element_size`**: 获取元素尺寸（宽、高）。
-* **`get_element_offset`**: 获取元素位置（左、上、右、下）。
-* **`tap_element`**: 点击元素。
-* **`longpress_element`**: 长按元素。
-* **`input_text`**: 向 `<input>` 或 `<textarea>` 输入文本。
-* **`trigger_event`**: 触发自定义事件（change、blur、submit 等）。
+### 元素交互（仅小程序）
+| 工具 | 描述 | 参数 |
+|------|------|------|
+| `get_element` | 获取元素信息 | `selector`, `action` |
+| `get_element_size` | 获取元素尺寸 | `selector` |
+| `get_element_offset` | 获取元素位置 | `selector` |
+| `tap_element` | 点击元素 | `selector` |
+| `longpress_element` | 长按元素 | `selector` |
+| `input_text` | 输入文本 | `selector`, `value` |
+| `trigger_event` | 触发事件 | `selector`, `eventName`, `detail` |
 
 ### 代码执行
-* **`evaluate`**: 在 AppService 上下文中执行任意 JavaScript。
-* **`call_method`**: 调用当前页面的方法。
-* **`call_wx_method`**: 调用任意 wx API 方法（getNetworkType、getLocation 等）。
-* **`mock_wx_method`**: 模拟 wx API 方法用于测试。
-* **`restore_wx_method`**: 恢复被模拟的 wx API 方法。
+| 工具 | 描述 | 参数 |
+|------|------|------|
+| `evaluate` | 执行 JS 代码 | `script`, `args` |
+| `call_wx_method` | 调用 wx.* API | `method`, `args` |
+| `mock_wx_method` | 模拟 wx.* API | `method`, `result` |
+| `restore_wx_method` | 恢复模拟的 API | `method` |
 
 ### 小游戏工具
-* **`get_project_type`**: 检测项目类型（小程序或小游戏）。
-* **`game_get_info`**: 获取小游戏运行时信息（系统信息、性能、渲染器）。
-* **`game_get_user_info`**: 获取小游戏用户信息。
-* **`game_get_open_data_context`**: 检查开放数据域可用性。
-* **`game_get_cloud_storage`**: 按 key 获取云存储数据。
+| 工具 | 描述 | 参数 |
+|------|------|------|
+| `get_project_type` | 自动检测项目类型 | — |
+| `game_get_info` | 游戏运行时信息 | — |
+| `game_get_user_info` | 用户信息 | — |
+| `game_get_open_data_context` | 开放数据域 | — |
+| `game_get_cloud_storage` | 云存储数据 | `keys` |
 
-> **注意**: 小游戏没有页面和 DOM 元素。当 `projectType` 为 `"game"` 时，页面工具（`get_page_data`、`get_element`、`tap_element` 等）会返回清晰的错误信息并建议替代工具。请使用 `evaluate`、`call_wx_method`、`game_*` 工具和 `screenshot`。
+> 小游戏没有页面和 DOM。页面工具（`get_page_data`、`get_element`、`tap_element` 等）在游戏项目上会返回清晰的错误提示。
 
-### 云开发与构建
-* **`call_cloud_function`**: 调用微信云函数。
-* **`build_npm`**: 构建 NPM 依赖。
-* **`cloud_functions_deploy`**: 部署云函数。
-* **`cloud_functions_list`**: 列出云函数。
+### 调试工具
+| 工具 | 描述 | 参数 |
+|------|------|------|
+| `get_system_info` | 获取系统信息 | — |
+| `get_console_logs` | 获取控制台日志 | `level`, `limit` |
+| `screenshot` | 截图 | `path` |
+| `page_scroll_to` | 滚动页面 | `scrollTop`, `duration` |
+| `wait_for` | 等待元素出现 | `selector`, `timeout` |
+| `call_cloud_function` | 调用云函数 | `name`, `data`, `config` |
 
-### 其他
-* **`screenshot`**: 截图（返回 base64 或保存到文件）。
-* **`page_scroll_to`**: 滚动页面到指定位置。
-* **`wait_for`**: 等待元素出现。
-* **`get_project_type`**: 检测项目类型（小程序 vs 小游戏）。
-
-## AI Agent 最佳实践
-
-将以下规则添加到 `.cursorrules` 或系统提示词中：
-
-```markdown
-## 微信开发者工具工作流
-
-1. **启动**: 开始工作前，使用 `wechat-devtools_launch` 打开项目，或使用 `wechat-devtools_connect` 连接到已有实例。
-
-2. **修改后必检查**: 每次修改代码后，**必须** 运行 `wechat-devtools_check_health`。立即修复所有错误。
-
-3. **等待编译**: 启动后，如果小程序仍在编译，使用 `wechat-devtools_wait_ready` 等待。`check_health` 会显示 `compilationStatus: "compiling"` 直到就绪。
-
-4. **验证 UI**: 使用 `wechat-devtools_get_element` 检查关键元素。使用 `wechat-devtools_get_page_data` 确认数据绑定。
-
-5. **调试**: 使用 `wechat-devtools_evaluate` 执行 `console.log` 或检查 `wx` 对象。使用 `wechat-devtools_get_console_logs` 查看日志。
-
-6. **截图**: 使用 `wechat-devtools_screenshot` 直观验证 UI 状态。
-
-7. **云函数**: 使用 `wechat-devtools_call_cloud_function` 调试云函数。使用 `wechat-devtools_build_npm` 构建依赖。
-```
+### CLI 操作
+| 工具 | 描述 | 参数 |
+|------|------|------|
+| `build_npm` | 构建 NPM 依赖 | `projectPath`, `cliPath` |
+| `cloud_functions_deploy` | 部署云函数 | `env`, `names` |
+| `cloud_functions_list` | 列出云函数 | `env` |
 
 ## 环境变量
 
-| 变量 | 默认值 | 描述 |
-|----------|---------|-------------|
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
 | `WECHAT_PORT` | `9420` | WebSocket 自动化端口 |
-| `WECHAT_CLI_TIMEOUT` | `120000` | CLI 命令超时时间（毫秒） |
-| `WECHAT_AUTOMATOR_TIMEOUT` | `10000` | 自动化 API 超时时间（毫秒） |
+| `WECHAT_CLI_TIMEOUT` | `120000` | CLI 命令超时（毫秒） |
+| `WECHAT_AUTOMATOR_TIMEOUT` | `10000` | 自动化 API 超时（毫秒） |
 
-## 常见问题排查
+## 工作流
 
-* **连接被拒绝**: 确保开发者工具正在运行，并且已开启服务端口。
-* **Extension context invalidated**: 关闭并重新打开开发者工具，或退出后重新启动。
-* **页面未就绪 / 编译卡住**: 打开开发者工具检查编译错误。尝试使用 `wait_ready` 并增加超时时间。
-* **路径问题**: `projectPath` 请务必使用绝对路径。
+### 小程序调试
+```
+1. check_health           # 确认连接
+2. navigate_to            # 跳转到目标页面
+3. get_page_data          # 检查页面数据
+4. get_element            # 检查 UI 元素
+5. tap_element            # 交互操作
+6. check_health           # 确认无报错
+```
+
+### 小游戏调试
+```
+1. check_health           # 确认连接（显示 projectType: "game"）
+2. game_get_info          # 获取运行时信息
+3. evaluate               # 执行 JS 代码
+4. call_wx_method         # 调用 wx API
+5. screenshot             # 截图验证
+6. get_console_logs       # 查看日志
+```
+
+## 常见问题
+
+| 问题 | 解决方案 |
+|------|----------|
+| 连接被拒绝 | 确保开发者工具已运行，服务端口已开启 |
+| Extension context invalidated | 完全重启开发者工具 |
+| currentPage() 超时 | 项目仍在编译，使用 `wait_ready` 等待 |
+| 页面工具在小游戏上失败 | 改用 `evaluate`、`call_wx_method`、`game_*` 工具 |
+| CLI 未找到 | 显式设置 `cliPath` 参数 |
+
+## 项目结构
+
+```
+wechat-dev-mcp/
+├── index.js           # MCP 服务器入口（单文件实现）
+├── package.json       # 包配置
+├── AGENTS.md          # AI Agent 工作流指南
+├── README.md          # 英文文档
+├── README_zh-CN.md    # 中文文档
+├── .cursorrules       # Cursor/Windsurf 规则
+├── .gitignore         # Git 忽略规则
+├── LICENSE            # MIT 许可证
+└── yarn.lock          # 依赖锁文件
+```

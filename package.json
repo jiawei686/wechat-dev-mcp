@@ -8,7 +8,8 @@
   "files": [
     "index.js",
     "README.md",
-    "README_zh-CN.md"
+    "README_zh-CN.md",
+    "AGENTS.md"
   ],
   "type": "module",
   "main": "index.js",
