@@ -1,6 +1,6 @@
 {
   "name": "wechat-dev-mcp",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "A Model Context Protocol (MCP) server for controlling WeChat Developer Tools",
   "bin": {
     "wechat-dev-mcp": "./index.js"

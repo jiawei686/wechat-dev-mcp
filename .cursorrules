@@ -1,33 +1,61 @@
-# WeChat Miniprogram Development Rules
+# WeChat DevTools MCP Workflow
 
-## 核心原则 (Core Principles)
+## 核心原则
 
-你正在开发一个微信小程序。为了确保代码的健壮性，你必须遵守以下工作流：
+你正在使用微信开发者工具 MCP 服务器控制小程序开发和调试。
 
-1.  **修改后必检查 (Verify After Change)**:
-    *   每次使用 `write` 或 `edit` 修改代码后，**必须** 立即调用 `check_health` 工具。
-    *   **不要** 假设代码能直接运行。小程序环境很敏感。
+### 1. 连接管理
+- 开始工作前，先使用 `check_health` 检查连接状态
+- 如果未连接，使用 `launch`（需 projectPath）或 `connect` 建立连接
+- 启动后如果 `compilationStatus` 为 `"compiling"`，使用 `wait_ready` 等待编译完成
 
-2.  **处理错误 (Handle Errors)**:
-    *   检查 `check_health` 返回的 `recentConsoleErrors`。
-    *   如果有报错，**必须** 优先修复报错，而不是继续写新功能。
-    *   如果 `connected` 为 `false`，说明开发者工具断开了，必须先使用 `launch` 或 `connect` 重新连接。
+### 2. 修改后必检查
+- 每次使用 `write` 或 `edit` 修改代码后，**必须** 立即调用 `check_health`
+- 检查 `recentConsoleErrors`，有错误立即修复
+- 确认 `pagePath` 是期望的页面
 
-3.  **验证 UI (Verify UI)**:
-    *   在修改 UI (WXML/WXSS) 后，使用 `get_element` 检查关键元素是否存在。
-    *   可以使用 `get_page_data` 确认数据是否正确绑定。
+### 3. 验证 UI
+- 使用 `get_element` 检查关键元素（action="wxml" 查看结构，action="text" 查看文本）
+- 使用 `get_element_size` 和 `get_element_offset` 验证布局
+- 使用 `get_page_data` 确认数据绑定正确
+- 使用 `screenshot` 直观验证 UI
 
-## 工具使用规范 (Tool Usage)
+### 4. 调试技术
+- 使用 `evaluate` 执行 `console.log()` 或检查 `wx` 对象状态
+- 使用 `get_console_logs` 查看最近日志
+- 使用 `call_wx_method` 调用 wx API 验证功能
+- 使用 `mock_wx_method` 模拟 wx API 进行测试
 
-*   **启动**: 开始工作前，总是先检查连接状态。如果未连接，使用 `launch` 启动项目。
-*   **调试**: 遇到问题时，使用 `evaluate` 执行 `console.log` 或直接检查 `wx` 对象的状态。
-*   **部署**: 使用 `build_npm` 构建依赖，使用 `cloud_functions_deploy` 部署云函数。
+### 5. 导航与页面
+- 使用 `navigate_to`（method="navigateTo" 压栈，method="redirectTo" 替换）
+- 使用 `navigate_back` 返回上一页
+- 使用 `get_page_stack` 查看当前页面栈
 
-## 示例工作流 (Example Workflow)
+### 6. 云函数与构建
+- 使用 `build_npm` 构建 NPM 依赖
+- 使用 `call_cloud_function` 调试云函数
+- 使用 `cloud_functions_deploy` 部署云函数
 
-User: "帮我把标题改成红色"
-Agent: 
-1. `edit` 修改 .wxss 文件。
-2. `check_health` 确认没有编译错误。
-3. `get_element` (action="style") 确认颜色已生效。
-4. 回复用户。
+### 7. 元素交互规范
+- `tap_element`：点击按钮、链接等
+- `input_text`：输入文本到 input/textarea
+- `trigger_event`：触发 change/blur 等事件
+- `longpress_element`：长按操作
+- `call_method`：调用页面方法（如 `onLoad`, `onShow`）
+
+### 8. 错误处理
+- 如果 `connected` 为 false → 使用 `launch` 或 `connect`
+- 如果 `compilationStatus` 为 `"compiling"` → 使用 `wait_ready`
+- 如果 `recentConsoleErrors` 有错误 → 立即修复
+- 如果工具返回 `isError` → 理解错误信息并修正
+
+## 示例工作流
+
+User: "帮我调试首页的按钮点击问题"
+Agent:
+1. `check_health` 确认连接
+2. `get_element` (selector="button", action="wxml") 确认按钮存在
+3. `tap_element` (selector="button") 点击按钮
+4. `check_health` 检查是否有报错
+5. `get_console_logs` 查看点击后的日志
+6. 根据日志分析问题并修复
