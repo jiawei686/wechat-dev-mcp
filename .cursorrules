@@ -2,60 +2,50 @@
 
 ## 核心原则
 
-你正在使用微信开发者工具 MCP 服务器控制小程序开发和调试。
+你正在使用微信开发者工具 MCP 服务器控制小程序/小游戏开发和调试。
 
 ### 1. 连接管理
-- 开始工作前，先使用 `check_health` 检查连接状态
+- 开始工作前，使用 `check_health` 检查连接状态
 - 如果未连接，使用 `launch`（需 projectPath）或 `connect` 建立连接
 - 启动后如果 `compilationStatus` 为 `"compiling"`，使用 `wait_ready` 等待编译完成
+- `get_project_type` 可以查看当前项目类型（小程序或小游戏）
 
-### 2. 修改后必检查
+### 2. 小程序 (Mini-Program) 工作流
+适用于 `compileType: "miniprogram"` 的项目：
+- 使用 `get_element` 检查 UI 元素
+- 使用 `get_page_data` / `set_page_data` 管理页面数据
+- 使用 `navigate_to` / `navigate_back` 导航
+- 使用 `tap_element` / `input_text` 进行交互
+
+### 3. 小游戏 (Mini-Game) 工作流
+适用于 `compileType: "game"` 的项目：
+- **页面/DOM 工具不可用**（小游戏没有页面概念）
+- 使用 `evaluate` 在游戏上下文中执行 JS
+- 使用 `call_wx_method` 调用 wx API（如 `getSystemInfoSync`、`getUserInfo`）
+- 使用 `game_get_info` 获取游戏运行时信息
+- 使用 `screenshot` 截图验证
+- 使用 `mock_wx_method` / `restore_wx_method` 模拟 wx API
+- 使用 `get_console_logs` 查看日志
+- 使用 `game_get_open_data_context` 获取开放数据域
+
+### 4. 修改后必检查
 - 每次使用 `write` 或 `edit` 修改代码后，**必须** 立即调用 `check_health`
 - 检查 `recentConsoleErrors`，有错误立即修复
-- 确认 `pagePath` 是期望的页面
+- 确认 `projectType` 与项目类型一致
 
-### 3. 验证 UI
-- 使用 `get_element` 检查关键元素（action="wxml" 查看结构，action="text" 查看文本）
-- 使用 `get_element_size` 和 `get_element_offset` 验证布局
-- 使用 `get_page_data` 确认数据绑定正确
-- 使用 `screenshot` 直观验证 UI
-
-### 4. 调试技术
+### 5. 调试技术
 - 使用 `evaluate` 执行 `console.log()` 或检查 `wx` 对象状态
 - 使用 `get_console_logs` 查看最近日志
 - 使用 `call_wx_method` 调用 wx API 验证功能
-- 使用 `mock_wx_method` 模拟 wx API 进行测试
-
-### 5. 导航与页面
-- 使用 `navigate_to`（method="navigateTo" 压栈，method="redirectTo" 替换）
-- 使用 `navigate_back` 返回上一页
-- 使用 `get_page_stack` 查看当前页面栈
+- 使用 `mock_wx_method` 模拟 wx API 进行测试（无需真实设备）
 
 ### 6. 云函数与构建
 - 使用 `build_npm` 构建 NPM 依赖
 - 使用 `call_cloud_function` 调试云函数
 - 使用 `cloud_functions_deploy` 部署云函数
 
-### 7. 元素交互规范
-- `tap_element`：点击按钮、链接等
-- `input_text`：输入文本到 input/textarea
-- `trigger_event`：触发 change/blur 等事件
-- `longpress_element`：长按操作
-- `call_method`：调用页面方法（如 `onLoad`, `onShow`）
-
-### 8. 错误处理
+### 7. 错误处理
 - 如果 `connected` 为 false → 使用 `launch` 或 `connect`
 - 如果 `compilationStatus` 为 `"compiling"` → 使用 `wait_ready`
-- 如果 `recentConsoleErrors` 有错误 → 立即修复
+- 如果 `projectType` 为 `"game"` → 不要使用 page/DOM 工具
 - 如果工具返回 `isError` → 理解错误信息并修正
-
-## 示例工作流
-
-User: "帮我调试首页的按钮点击问题"
-Agent:
-1. `check_health` 确认连接
-2. `get_element` (selector="button", action="wxml") 确认按钮存在
-3. `tap_element` (selector="button") 点击按钮
-4. `check_health` 检查是否有报错
-5. `get_console_logs` 查看点击后的日志
-6. 根据日志分析问题并修复

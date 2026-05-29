@@ -26,6 +26,9 @@ const AUTOMATOR_TIMEOUT = parseInt(process.env.WECHAT_AUTOMATOR_TIMEOUT || "1000
 let miniProgram = null;
 let connectedProjectPath = null;
 let connectedCliPath = null;
+let projectType = null; // null | "program" | "game"
+const PROJECT_TYPE_PROGRAM = "program";
+const PROJECT_TYPE_GAME = "game";
 const consoleLogs = [];
 
 function withTimeout(promise, ms, errorMsg) {
@@ -126,9 +129,12 @@ async function callWithTimeout(fn, timeoutMs) {
 }
 
 async function getCurrentPage() {
+  if (projectType === PROJECT_TYPE_GAME) {
+    throw new Error("This tool requires a mini-program with pages. Current project is a mini-game. Use 'evaluate', 'call_wx_method', 'game_get_info', or 'screenshot' instead.");
+  }
   const page = await callWithTimeout(() => miniProgram.currentPage());
   if (!page) {
-    throw new Error("No page is currently open in the mini-program. The project may still be compiling or no project is open.");
+    throw new Error("No page is currently open. The project may still be compiling or no project is open.");
   }
   return page;
 }
@@ -142,10 +148,61 @@ async function queryElement(selector) {
   return element;
 }
 
+async function detectProjectType(mp) {
+  if (!mp) return null;
+  // First, try to detect from project.config.json (fast, reliable)
+  if (connectedProjectPath) {
+    const configPaths = [
+      path.join(connectedProjectPath, 'project.config.json'),
+      path.join(connectedProjectPath, 'project.config.jsonc'),
+    ];
+    for (const configPath of configPaths) {
+      try {
+        const content = fs.readFileSync(configPath, 'utf-8');
+        const config = JSON.parse(content);
+        const compileType = config.compileType || (config.setting && config.setting.compileType);
+        if (compileType === 'game') return PROJECT_TYPE_GAME;
+        if (compileType === 'miniprogram') return PROJECT_TYPE_PROGRAM;
+      } catch {}
+    }
+  }
+  // Fallback: check for game.json (game projects have game.json instead of app.json)
+  if (connectedProjectPath) {
+    if (fs.existsSync(path.join(connectedProjectPath, 'game.json'))) return PROJECT_TYPE_GAME;
+    if (fs.existsSync(path.join(connectedProjectPath, 'app.json')) ||
+        fs.existsSync(path.join(connectedProjectPath, 'miniprogram', 'app.json'))) return PROJECT_TYPE_PROGRAM;
+  }
+  // Last resort: try evaluate (requires game to be running, short timeout)
+  try {
+    const isGame = await withTimeout(mp.evaluate(() => typeof GameGlobal !== 'undefined'), 3000, 'detection timed out');
+    if (isGame !== undefined) return isGame ? PROJECT_TYPE_GAME : PROJECT_TYPE_PROGRAM;
+  } catch {}
+  return null;
+}
+
+async function ensurePageTool() {
+  if (projectType === PROJECT_TYPE_GAME) {
+    throw new Error("This tool is for mini-programs only. Current project is a mini-game. Use 'evaluate', 'call_wx_method', or 'game_*' tools instead.");
+  }
+}
+
+const GAME_TOOL_DESCRIPTION = {
+  game_get_info: "Get mini-game runtime info: device info, performance stats, renderer type, and frame rate via wx.getSystemInfoSync and wx.getPerformance.",
+  game_get_user_info: "Get mini-game user's WeChat info (avatar, nickname) via wx.getUserInfo or wx.getUserProfile.",
+  game_get_open_data_context: "Get the open data context of a mini-game for friend leaderboard / group data access.",
+  game_get_cloud_storage: "Get mini-game cloud storage data via wx.getCloudStorageByKeys.",
+};
+
 const WAIT_READY_MAX_ATTEMPTS = 20;
 const WAIT_READY_INTERVAL = 3000;
 
 async function waitMiniProgramReady(mp, maxWaitMs) {
+  // For mini-games: no pages to wait for, consider ready immediately
+  const gameCheck = await detectProjectType(mp);
+  if (gameCheck === PROJECT_TYPE_GAME) {
+    return { game: true, path: null };
+  }
+
   const maxAttempts = Math.ceil((maxWaitMs || WAIT_READY_MAX_ATTEMPTS * WAIT_READY_INTERVAL) / WAIT_READY_INTERVAL);
   for (let i = 0; i < maxAttempts; i++) {
     try {
@@ -175,6 +232,7 @@ const inputSchema = z.object({
 
 const connectSchema = z.object({
   wsEndpoint: z.string().optional().describe("WebSocket endpoint (e.g., ws://localhost:9420)"),
+  projectPath: z.string().optional().describe("Project path (helps detect mini-program vs mini-game)"),
 });
 
 const navigateToSchema = z.object({
@@ -309,6 +367,18 @@ const waitReadySchema = z.object({
   timeout: z.number().optional().default(60000).describe("Maximum time to wait in ms"),
 });
 
+const getProjectTypeSchema = z.object({});
+
+const gameGetInfoSchema = z.object({});
+
+const gameGetUserInfoSchema = z.object({});
+
+const gameGetOpenDataContextSchema = z.object({});
+
+const gameGetCloudStorageSchema = z.object({
+  keys: z.array(z.string()).describe("Cloud storage keys to retrieve"),
+});
+
 const TOOLS = {
   LAUNCH: "launch",
   CONNECT: "connect",
@@ -341,6 +411,11 @@ const TOOLS = {
   CLOUD_FUNCTIONS_DEPLOY: "cloud_functions_deploy",
   CLOUD_FUNCTIONS_LIST: "cloud_functions_list",
   DISCONNECT: "disconnect",
+  GET_PROJECT_TYPE: "get_project_type",
+  GAME_GET_INFO: "game_get_info",
+  GAME_GET_USER_INFO: "game_get_user_info",
+  GAME_GET_OPEN_DATA_CONTEXT: "game_get_open_data_context",
+  GAME_GET_CLOUD_STORAGE: "game_get_cloud_storage",
 };
 
 const server = new Server(
@@ -479,6 +554,26 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Disconnect the automation session from the mini-program.",
         z.object({})
       ),
+      registerTool(TOOLS.GET_PROJECT_TYPE,
+        "Detect the current project type: 'program' (mini-program with pages) or 'game' (mini-game without pages).",
+        getProjectTypeSchema
+      ),
+      registerTool(TOOLS.GAME_GET_INFO,
+        GAME_TOOL_DESCRIPTION.game_get_info,
+        gameGetInfoSchema
+      ),
+      registerTool(TOOLS.GAME_GET_USER_INFO,
+        GAME_TOOL_DESCRIPTION.game_get_user_info,
+        gameGetUserInfoSchema
+      ),
+      registerTool(TOOLS.GAME_GET_OPEN_DATA_CONTEXT,
+        GAME_TOOL_DESCRIPTION.game_get_open_data_context,
+        gameGetOpenDataContextSchema
+      ),
+      registerTool(TOOLS.GAME_GET_CLOUD_STORAGE,
+        GAME_TOOL_DESCRIPTION.game_get_cloud_storage,
+        gameGetCloudStorageSchema
+      ),
     ],
   };
 });
@@ -526,8 +621,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           if (await projectReady(mp).catch(() => false)) {
             miniProgram = mp;
             setupListeners(miniProgram);
+            projectType = await detectProjectType(miniProgram);
             const page = await callWithTimeout(() => miniProgram.currentPage(), 3000);
-            return { content: [{ type: "text", text: `Connected to existing instance on port ${tryPort}, page: ${page.path}` }] };
+            const typeLabel = projectType === PROJECT_TYPE_GAME ? ' (mini-game)' : '';
+            return { content: [{ type: "text", text: `Connected to existing instance on port ${tryPort}, page: ${page.path}${typeLabel}` }] };
           }
 
           // Step 3: Instance is running without a project — use CLI to open it
@@ -540,14 +637,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           await executeCli(['open', '--project', projectPath, '--port', String(tryPort)], finalCliPath);
 
           // Step 4: Wait for project to compile and load
-          const readyPage = await waitMiniProgramReady(mp, 60000);
-          if (readyPage) {
+          const readyResult = await waitMiniProgramReady(mp, 60000);
+          if (readyResult) {
             miniProgram = mp;
             setupListeners(miniProgram);
-            return { content: [{ type: "text", text: `Opened project ${projectPath} in existing DevTools, page: ${readyPage.path}` }] };
+            projectType = await detectProjectType(miniProgram);
+            if (readyResult.game) {
+              return { content: [{ type: "text", text: `Opened mini-game project ${projectPath}. Use 'game_*' tools.` }] };
+            }
+            return { content: [{ type: "text", text: `Opened project ${projectPath} in existing DevTools, page: ${readyResult.path}` }] };
           }
           try { mp.disconnect(); } catch {}
-          return { isError: true, content: [{ type: "text", text: "Connected to DevTools but the mini-program failed to load. Check DevTools for compilation errors." }] };
+          return { isError: true, content: [{ type: "text", text: "Connected to DevTools but the project failed to load. Check DevTools for compilation errors." }] };
         } catch {}
 
         // Step 5: No running instance — launch DevTools with the project
@@ -558,15 +659,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             'Launch timed out'
           );
           setupListeners(miniProgram);
+          projectType = await detectProjectType(miniProgram);
 
           // Wait for mini-program to be ready (compilation + simulator)
-          const page = await waitMiniProgramReady(miniProgram, 60000);
-          if (page) {
-            return { content: [{ type: "text", text: `Launched project at ${projectPath}, page: ${page.path}` }] };
+          const readyResult = await waitMiniProgramReady(miniProgram, 60000);
+          if (readyResult) {
+            if (readyResult.game) {
+              return { content: [{ type: "text", text: `Launched mini-game at ${projectPath}. Use 'game_get_info', 'evaluate', 'call_wx_method', 'screenshot' to interact.` }] };
+            }
+            return { content: [{ type: "text", text: `Launched project at ${projectPath}, page: ${readyResult.path}` }] };
           }
 
           // Connected but mini-program is not ready yet
-          return { content: [{ type: "text", text: `Launched project at ${projectPath} but mini-program is still compiling. Use 'wait_ready' to wait for compilation to finish, or 'check_health' to check status.` }] };
+          return { content: [{ type: "text", text: `Launched project at ${projectPath} but it is still loading. Use 'wait_ready' or 'check_health' for status.` }] };
         } catch (launchError) {
           miniProgram = null;
           return { isError: true, content: [{ type: "text", text: `Launch failed: ${launchError.message}` }] };
@@ -577,9 +682,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (miniProgram) {
           return { content: [{ type: "text", text: "Already connected. Disconnect first." }] };
         }
-        let { wsEndpoint } = args;
+        let { wsEndpoint, projectPath } = args;
         if (!wsEndpoint) {
           wsEndpoint = `ws://localhost:${DEFAULT_PORT}`;
+        }
+        if (projectPath) {
+          connectedProjectPath = projectPath;
         }
         try {
           miniProgram = await withTimeout(
@@ -588,7 +696,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             `Connection to ${wsEndpoint} timed out`
           );
           setupListeners(miniProgram);
-          return { content: [{ type: "text", text: `Connected to Mini Program at ${wsEndpoint}.` }] };
+          projectType = await detectProjectType(miniProgram);
+          const typeLabel = projectType === PROJECT_TYPE_GAME ? 'mini-game' : (projectType === PROJECT_TYPE_PROGRAM ? 'mini-program' : 'unknown');
+          return { content: [{ type: "text", text: `Connected to ${typeLabel} at ${wsEndpoint}.` }] };
         } catch (e) {
           return { isError: true, content: [{ type: "text", text: `Failed to connect: ${e.message}` }] };
         }
@@ -599,6 +709,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           return { content: [{ type: "text", text: JSON.stringify({ connected: false, error: "Not connected" }) }] };
         }
 
+        if (projectType === null) {
+          projectType = await detectProjectType(miniProgram);
+        }
+
         let pagePath = "unknown";
         let pageReady = false;
         let compilationStatus = "unknown";
@@ -607,10 +721,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           pagePath = page ? page.path : "no_page_found";
           pageReady = !!page;
           if (pageReady) compilationStatus = "ready";
-          else compilationStatus = "no_page";
+          else compilationStatus = page ? "no_page" : "no_page_game";
         } catch (e) {
           pagePath = `unavailable: ${e.message}`;
-          compilationStatus = "compiling";
+          compilationStatus = projectType === PROJECT_TYPE_GAME ? "game_no_pages" : "compiling";
         }
 
         const recentErrors = consoleLogs
@@ -634,7 +748,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         let tips = "Connected, waiting for compilation...";
-        if (pageReady && networkType !== "unknown") tips = "Mini-program is running normally";
+        if (projectType === PROJECT_TYPE_GAME) {
+          tips = "Mini-game detected. Use 'game_get_info', 'evaluate', 'call_wx_method' tools. Page/DOM tools are not available.";
+          if (pageReady) tips = "Mini-game is running. Use game_* tools to interact.";
+        } else if (pageReady && networkType !== "unknown") tips = "Mini-program is running normally";
         else if (pageReady) tips = "Mini-program loaded, but network check failed";
 
         return {
@@ -642,6 +759,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             type: "text",
             text: JSON.stringify({
               connected: true,
+              projectType,
               pagePath,
               pageReady,
               compilationStatus,
@@ -660,6 +778,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         miniProgram.disconnect();
         miniProgram = null;
         connectedProjectPath = null;
+        projectType = null;
         consoleLogs.length = 0;
         return { content: [{ type: "text", text: "Disconnected and session cleared." }] };
       }
@@ -668,7 +787,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         await ensureConnected();
 
         switch (name) {
+          case TOOLS.GET_PROJECT_TYPE: {
+            if (projectType) {
+              return { content: [{ type: "text", text: `Project type: ${projectType === PROJECT_TYPE_GAME ? 'mini-game' : 'mini-program'}` }] };
+            }
+            const detected = await detectProjectType(miniProgram);
+            if (detected) {
+              projectType = detected;
+              return { content: [{ type: "text", text: `Project type: ${detected === PROJECT_TYPE_GAME ? 'mini-game' : 'mini-program'}` }] };
+            }
+            return { content: [{ type: "text", text: "Unable to detect project type." }] };
+          }
+
           case TOOLS.NAVIGATE_TO: {
+            await ensurePageTool();
             const { url, method } = args;
             let page;
             switch (method) {
@@ -689,6 +821,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }
 
           case TOOLS.NAVIGATE_BACK: {
+            await ensurePageTool();
             const { delta } = args;
             const page = await callWithTimeout(() => miniProgram.navigateBack(delta));
             const pagePath = page ? page.path : "unknown";
@@ -696,6 +829,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }
 
           case TOOLS.GET_PAGE_STACK: {
+            await ensurePageTool();
             const stack = await callWithTimeout(() => miniProgram.pageStack());
             const pages = stack.map(p => ({ path: p.path, query: p.query }));
             return { content: [{ type: "text", text: JSON.stringify(pages, null, 2) }] };
@@ -836,6 +970,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }
 
           case TOOLS.PAGE_SCROLL_TO: {
+            await ensurePageTool();
             const { scrollTop, duration } = args;
             if (duration) {
               await callWithTimeout(() => miniProgram.evaluate((top, dur) => {
@@ -859,9 +994,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
           case TOOLS.WAIT_READY: {
             const { timeout } = args;
-            const page = await waitMiniProgramReady(miniProgram, timeout || 60000);
-            if (page) {
-              return { content: [{ type: "text", text: `Mini-program is ready, current page: ${page.path}` }] };
+            if (projectType === null) {
+              projectType = await detectProjectType(miniProgram);
+            }
+            if (projectType === PROJECT_TYPE_GAME) {
+              return { content: [{ type: "text", text: "Mini-game is loaded. Use 'game_get_info', 'evaluate', 'call_wx_method', 'screenshot' for interaction." }] };
+            }
+            const readyResult = await waitMiniProgramReady(miniProgram, timeout || 60000);
+            if (readyResult) {
+              if (readyResult.game) {
+                return { content: [{ type: "text", text: "Mini-game is loaded. Use game_* tools." }] };
+              }
+              return { content: [{ type: "text", text: `Mini-program is ready, current page: ${readyResult.path}` }] };
             }
             return { isError: true, content: [{ type: "text", text: `Mini-program not ready after ${timeout || 60000}ms. Check DevTools for compilation errors.` }] };
           }
@@ -879,6 +1023,76 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               return `${prefix} [${time}] ${log.text}`;
             });
             return { content: [{ type: "text", text: logs.length > 0 ? logs.join('\n') : "No console logs." }] };
+          }
+
+          case TOOLS.GAME_GET_INFO: {
+            const sysInfo = await callWithTimeout(() => miniProgram.systemInfo(), 15000);
+            let perfInfo = {};
+            try {
+              perfInfo = await callWithTimeout(() => miniProgram.evaluate(() => {
+                const perf = wx.getPerformance ? wx.getPerformance() : null;
+                return {
+                  renderer: wx.getSystemInfoSync ? wx.getSystemInfoSync().renderer : 'unknown',
+                  SDKVersion: wx.getSystemInfoSync ? wx.getSystemInfoSync().SDKVersion : 'unknown',
+                  hasGetPerformance: !!wx.getPerformance,
+                };
+              }), 10000);
+            } catch {}
+            return { content: [{ type: "text", text: JSON.stringify({ systemInfo: sysInfo, performance: perfInfo }, null, 2) }] };
+          }
+
+          case TOOLS.GAME_GET_USER_INFO: {
+            const userInfo = await callWithTimeout(() => miniProgram.evaluate(() => {
+              return new Promise(resolve => {
+                if (wx.getUserProfile) {
+                  wx.getUserProfile({ desc: '用于调试', success: resolve, fail: () => resolve({ _error: 'getUserProfile failed' }) });
+                } else if (wx.getUserInfo) {
+                  wx.getUserInfo({ success: resolve, fail: () => resolve({ _error: 'getUserInfo failed' }) });
+                } else {
+                  resolve({ _error: 'No getUserInfo or getUserProfile available' });
+                }
+              });
+            }), 30000);
+            if (userInfo && userInfo._error) {
+              return { isError: true, content: [{ type: "text", text: userInfo._error }] };
+            }
+            return { content: [{ type: "text", text: JSON.stringify(userInfo, null, 2) }] };
+          }
+
+          case TOOLS.GAME_GET_OPEN_DATA_CONTEXT: {
+            const data = await callWithTimeout(() => miniProgram.evaluate(() => {
+              try {
+                const sharedCanvas = wx.getOpenDataContext ? wx.getOpenDataContext() : null;
+                if (!sharedCanvas) return { _error: 'wx.getOpenDataContext not available or not in open context' };
+                return {
+                  hasOpenDataContext: true,
+                  text: typeof sharedCanvas.postMessage === 'function' ? 'postMessage available' : 'no postMessage',
+                };
+              } catch (e) {
+                return { _error: e.message };
+              }
+            }), 10000);
+            if (data && data._error) {
+              return { isError: true, content: [{ type: "text", text: `Open data context: ${data._error}` }] };
+            }
+            return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+          }
+
+          case TOOLS.GAME_GET_CLOUD_STORAGE: {
+            const { keys } = args;
+            const data = await callWithTimeout(() => miniProgram.evaluate((k) => {
+              return new Promise(resolve => {
+                wx.getCloudStorageByKeys({
+                  keyList: k,
+                  success: resolve,
+                  fail: () => resolve({ _error: 'getCloudStorageByKeys failed. Ensure cloud is enabled.' }),
+                });
+              });
+            }, keys), 15000);
+            if (data && data._error) {
+              return { isError: true, content: [{ type: "text", text: data._error }] };
+            }
+            return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
           }
 
           case TOOLS.BUILD_NPM: {

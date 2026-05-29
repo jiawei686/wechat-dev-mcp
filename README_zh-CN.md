@@ -104,6 +104,15 @@ node index.js
 * **`mock_wx_method`**: 模拟 wx API 方法用于测试。
 * **`restore_wx_method`**: 恢复被模拟的 wx API 方法。
 
+### 小游戏工具
+* **`get_project_type`**: 检测项目类型（小程序或小游戏）。
+* **`game_get_info`**: 获取小游戏运行时信息（系统信息、性能、渲染器）。
+* **`game_get_user_info`**: 获取小游戏用户信息。
+* **`game_get_open_data_context`**: 检查开放数据域可用性。
+* **`game_get_cloud_storage`**: 按 key 获取云存储数据。
+
+> **注意**: 小游戏没有页面和 DOM 元素。当 `projectType` 为 `"game"` 时，页面工具（`get_page_data`、`get_element`、`tap_element` 等）会返回清晰的错误信息并建议替代工具。请使用 `evaluate`、`call_wx_method`、`game_*` 工具和 `screenshot`。
+
 ### 云开发与构建
 * **`call_cloud_function`**: 调用微信云函数。
 * **`build_npm`**: 构建 NPM 依赖。
@@ -114,6 +123,7 @@ node index.js
 * **`screenshot`**: 截图（返回 base64 或保存到文件）。
 * **`page_scroll_to`**: 滚动页面到指定位置。
 * **`wait_for`**: 等待元素出现。
+* **`get_project_type`**: 检测项目类型（小程序 vs 小游戏）。
 
 ## AI Agent 最佳实践
 

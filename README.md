@@ -104,6 +104,15 @@ Configure Claude Desktop to point to your local file:
 * **`mock_wx_method`**: Mock a wx API method for testing.
 * **`restore_wx_method`**: Restore a mocked wx API method.
 
+### Mini-Game Tools
+* **`get_project_type`**: Detect project type (mini-program or mini-game).
+* **`game_get_info`**: Get mini-game runtime info (system info, performance, renderer).
+* **`game_get_user_info`**: Get mini-game user info (wx.getUserInfo / wx.getUserProfile).
+* **`game_get_open_data_context`**: Check open data context availability.
+* **`game_get_cloud_storage`**: Get cloud storage data by keys.
+
+> **Note**: Mini-games don't have pages or DOM elements. When `projectType` is `"game"`, page tools (`get_page_data`, `get_element`, `tap_element`, etc.) will return clear error messages with alternative tool suggestions. Use `evaluate`, `call_wx_method`, `game_*` tools, and `screenshot` instead.
+
 ### Cloud & Build
 * **`call_cloud_function`**: Call a WeChat Cloud Function.
 * **`build_npm`**: Build NPM dependencies.
@@ -114,6 +123,7 @@ Configure Claude Desktop to point to your local file:
 * **`screenshot`**: Take a screenshot (returns base64 or saves to file).
 * **`page_scroll_to`**: Scroll the page to a specific position.
 * **`wait_for`**: Wait for an element to appear.
+* **`get_project_type`**: Detect project type (mini-program vs mini-game).
 
 ## Best Practices for AI Agents
 
